@@ -40,29 +40,43 @@ class NewLoanDialog(QDialog):
         self._borrowers = borrower_repository.list_all()
 
         self.borrower_combo = QComboBox()
+        self.borrower_combo.setToolTip("Selecciona el deudor al que se le otorga el préstamo")
         for borrower in self._borrowers:
             self.borrower_combo.addItem(borrower.name, borrower.id)
 
         self.principal_input = QLineEdit("10000")
+        self.principal_input.setToolTip("Capital que se entrega al deudor (debe ser mayor a 0)")
         self.total_due_input = QLineEdit("14000")
+        self.total_due_input.setToolTip(
+            "Total a cobrar: capital + ganancia. Debe ser mayor al capital."
+        )
 
         self.num_installments_input = QSpinBox()
         self.num_installments_input.setRange(1, 520)
         self.num_installments_input.setValue(14)
+        self.num_installments_input.setToolTip("Número de cuotas en las que se divide el préstamo")
 
         self.frequency_combo = QComboBox()
+        self.frequency_combo.setToolTip(
+            "Frecuencia de pago: semanal (cada 7 días), "
+            "quincenal (cada 14 días), mensual (cada mes)"
+        )
         for frequency, label in _FREQUENCY_LABELS.items():
-            # Se guarda el .value (str plano): Qt convierte StrEnum a str al
-            # pasar por QVariant, así que currentData() ya no devolvía el enum.
             self.frequency_combo.addItem(label, frequency.value)
 
         self.start_date_input = QDateEdit(QDate.currentDate())
         self.start_date_input.setCalendarPopup(True)
+        self.start_date_input.setToolTip(
+            "Fecha en que se otorga el préstamo. "
+            "Las cuotas empiezan a contar desde aquí."
+        )
 
         self.quota_label = QLabel("Cuota calculada: —")
 
         self.total_due_input.textChanged.connect(self._update_quota_preview)
         self.num_installments_input.valueChanged.connect(self._update_quota_preview)
+        self.principal_input.textChanged.connect(self._validate_principal)
+        self.total_due_input.textChanged.connect(self._validate_total_due)
 
         form = QFormLayout()
         form.addRow("Deudor*:", self.borrower_combo)
@@ -82,6 +96,25 @@ class NewLoanDialog(QDialog):
         layout.addWidget(buttons)
 
         self._update_quota_preview()
+
+    def _validate_principal(self) -> None:
+        value = self._parse_decimal(self.principal_input.text())
+        if value is None or value <= 0:
+            self.principal_input.setProperty("cssClass", "invalid")
+        else:
+            self.principal_input.setProperty("cssClass", "")
+        self.principal_input.style().unpolish(self.principal_input)
+        self.principal_input.style().polish(self.principal_input)
+
+    def _validate_total_due(self) -> None:
+        value = self._parse_decimal(self.total_due_input.text())
+        principal = self._parse_decimal(self.principal_input.text())
+        if value is None or value <= 0 or (principal and value < principal):
+            self.total_due_input.setProperty("cssClass", "invalid")
+        else:
+            self.total_due_input.setProperty("cssClass", "")
+        self.total_due_input.style().unpolish(self.total_due_input)
+        self.total_due_input.style().polish(self.total_due_input)
 
     def _update_quota_preview(self) -> None:
         total_due = self._parse_decimal(self.total_due_input.text())

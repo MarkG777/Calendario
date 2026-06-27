@@ -29,8 +29,13 @@ from data.repositories import (
 )
 from domain.calculations import installment_status, outstanding_balance
 from domain.enums import InstallmentStatus
+from ui.icons import icon
 from ui.payment_dialog import PaymentDialog
-from ui.status_colors import STATUS_COLORS, worst_status
+from ui.status_colors import (
+    status_background,
+    status_foreground,
+    worst_status,
+)
 
 
 class CollectionsTab(QWidget):
@@ -82,9 +87,11 @@ class CollectionsTab(QWidget):
         self.history_table.setAlternatingRowColors(True)
         self.history_table.verticalHeader().setVisible(False)
 
-        export_csv_button = QPushButton("Exportar a CSV")
+        export_csv_button = QPushButton(icon("export", "#ffffff"), "Exportar a CSV")
+        export_csv_button.setToolTip("Exportar el historial de cobros a un archivo CSV")
         export_csv_button.clicked.connect(self._export_history_csv)
-        export_excel_button = QPushButton("Exportar a Excel")
+        export_excel_button = QPushButton(icon("export", "#ffffff"), "Exportar a Excel")
+        export_excel_button.setToolTip("Exportar el historial de cobros a un archivo Excel")
         export_excel_button.clicked.connect(self._export_history_excel)
 
         export_buttons_row = QHBoxLayout()
@@ -142,7 +149,9 @@ class CollectionsTab(QWidget):
 
         for due_date, statuses in statuses_by_day.items():
             fmt = QTextCharFormat()
-            fmt.setBackground(STATUS_COLORS[worst_status(statuses)])
+            worst = worst_status(statuses)
+            fmt.setBackground(status_background(worst))
+            fmt.setForeground(status_foreground(worst))
             fmt.setFontWeight(700)
             self.calendar.setDateTextFormat(QDate(due_date), fmt)
 
@@ -223,10 +232,12 @@ class CollectionsTab(QWidget):
             table.setItem(row, 3, QTableWidgetItem(str(balance)))
 
             status_item = QTableWidgetItem(status.value)
-            status_item.setBackground(STATUS_COLORS[status])
+            status_item.setBackground(status_background(status))
+            status_item.setForeground(status_foreground(status))
             table.setItem(row, 4, status_item)
 
-            collect_button = QPushButton("Registrar cobro")
+            collect_button = QPushButton(icon("payment", "#ffffff"), "Registrar cobro")
+            collect_button.setToolTip("Registrar un pago o abono para esta cuota")
             collect_button.clicked.connect(
                 lambda _checked, inst=installment: self._open_payment_dialog(inst)
             )

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QHBoxLayout,
+    QLabel,
     QMessageBox,
     QPushButton,
     QTableWidget,
@@ -12,6 +14,8 @@ from PySide6.QtWidgets import (
 )
 
 from data.repositories import BorrowerRepository, LoanRepository
+from domain.enums import LoanStatus
+from ui.icons import icon
 from ui.loan_dialog import NewLoanDialog
 
 
@@ -35,12 +39,22 @@ class LoansTab(QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
 
-        new_button = QPushButton("Nuevo préstamo")
+        new_button = QPushButton(icon("plus"), "Nuevo préstamo")
+        new_button.setToolTip("Crear un nuevo préstamo (Ctrl+P)")
         new_button.clicked.connect(self._open_new_loan_dialog)
+
+        self._status_filter = QComboBox()
+        self._status_filter.addItem("Todos", "")
+        self._status_filter.addItem("Activos", LoanStatus.ACTIVO.value)
+        self._status_filter.addItem("Liquidados", LoanStatus.LIQUIDADO.value)
+        self._status_filter.setToolTip("Filtrar préstamos por estado")
+        self._status_filter.currentIndexChanged.connect(self._apply_filter)
 
         buttons_row = QHBoxLayout()
         buttons_row.addWidget(new_button)
         buttons_row.addStretch()
+        buttons_row.addWidget(QLabel("Filtrar:"))
+        buttons_row.addWidget(self._status_filter)
 
         layout = QVBoxLayout(self)
         layout.addLayout(buttons_row)
@@ -60,6 +74,17 @@ class LoansTab(QWidget):
             self.table.setItem(row, 2, QTableWidgetItem(str(loan.total_due)))
             self.table.setItem(row, 3, QTableWidgetItem(str(loan.installment_amount)))
             self.table.setItem(row, 4, QTableWidgetItem(loan.status.value))
+
+    def open_new_loan_dialog(self) -> None:
+        self._open_new_loan_dialog()
+
+    def _apply_filter(self) -> None:
+        filter_value = self._status_filter.currentData()
+        for row in range(self.table.rowCount()):
+            status_item = self.table.item(row, 4)
+            status = status_item.text() if status_item else ""
+            visible = not filter_value or status == filter_value
+            self.table.setRowHidden(row, not visible)
 
     def _open_new_loan_dialog(self) -> None:
         dialog = NewLoanDialog(self._borrower_repository, self)

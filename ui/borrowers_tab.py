@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from data.repositories import BorrowerRepository
 from domain.entities import Borrower
+from ui.icons import icon
 
 
 class BorrowerDialog(QDialog):
@@ -28,9 +29,13 @@ class BorrowerDialog(QDialog):
         self.setWindowTitle("Editar deudor" if borrower else "Nuevo deudor")
 
         self.name_input = QLineEdit(borrower.name if borrower else "")
+        self.name_input.setToolTip("Nombre completo del deudor (obligatorio)")
         self.phone_input = QLineEdit(borrower.phone if borrower else "")
+        self.phone_input.setToolTip("Número de teléfono de contacto")
         self.address_input = QLineEdit(borrower.address if borrower else "")
+        self.address_input.setToolTip("Dirección del deudor")
         self.notes_input = QLineEdit(borrower.notes if borrower else "")
+        self.notes_input.setToolTip("Notas internas sobre el deudor")
 
         form = QFormLayout()
         form.addRow("Nombre*:", self.name_input)
@@ -90,12 +95,19 @@ class BorrowersTab(QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
 
-        new_button = QPushButton("Nuevo deudor")
+        new_button = QPushButton(icon("plus"), "Nuevo deudor")
+        new_button.setToolTip("Crear un nuevo deudor (Ctrl+N)")
         new_button.clicked.connect(self._open_new_borrower_dialog)
+
+        self._search_input = QLineEdit()
+        self._search_input.setPlaceholderText("Buscar por nombre o teléfono...")
+        self._search_input.setToolTip("Escribe para filtrar deudores por nombre o teléfono")
+        self._search_input.textChanged.connect(self._filter_table)
 
         buttons_row = QHBoxLayout()
         buttons_row.addWidget(new_button)
         buttons_row.addStretch()
+        buttons_row.addWidget(self._search_input, 1)
 
         layout = QVBoxLayout(self)
         layout.addLayout(buttons_row)
@@ -114,6 +126,19 @@ class BorrowersTab(QWidget):
             edit_button = QPushButton("Editar")
             edit_button.clicked.connect(lambda _checked, r=row: self._open_edit_borrower_dialog(r))
             self.table.setCellWidget(row, 3, edit_button)
+
+    def _filter_table(self) -> None:
+        query = self._search_input.text().strip().lower()
+        for row in range(self.table.rowCount()):
+            name_item = self.table.item(row, 0)
+            phone_item = self.table.item(row, 1)
+            name = name_item.text().lower() if name_item else ""
+            phone = phone_item.text().lower() if phone_item else ""
+            visible = query in name or query in phone
+            self.table.setRowHidden(row, not visible)
+
+    def open_new_borrower_dialog(self) -> None:
+        self._open_new_borrower_dialog()
 
     def _open_new_borrower_dialog(self) -> None:
         dialog = BorrowerDialog(parent=self)

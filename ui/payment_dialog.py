@@ -31,10 +31,18 @@ class PaymentDialog(QDialog):
         self.scheduled_label = QLabel(str(installment.scheduled_amount))
         self.balance_label = QLabel(str(balance))
         self.amount_input = QLineEdit(str(balance))
+        self.amount_input.setToolTip(
+            "Monto a pagar. Puede ser un abono parcial o el saldo completo."
+        )
         self.date_input = QDateEdit(QDate.currentDate())
         self.date_input.setCalendarPopup(True)
+        self.date_input.setToolTip("Fecha en que se realiza el pago")
         self.method_input = QLineEdit()
+        self.method_input.setToolTip("Método de pago: efectivo, transferencia, etc.")
         self.notes_input = QLineEdit()
+        self.notes_input.setToolTip("Notas internas sobre este pago")
+
+        self.amount_input.textChanged.connect(self._validate_amount)
 
         form = QFormLayout()
         form.addRow("Monto programado:", self.scheduled_label)
@@ -58,6 +66,15 @@ class PaymentDialog(QDialog):
             return Decimal(text.strip())
         except (InvalidOperation, ValueError):
             return None
+
+    def _validate_amount(self) -> None:
+        amount = self._parse_decimal(self.amount_input.text())
+        if amount is None or amount <= 0:
+            self.amount_input.setProperty("cssClass", "invalid")
+        else:
+            self.amount_input.setProperty("cssClass", "")
+        self.amount_input.style().unpolish(self.amount_input)
+        self.amount_input.style().polish(self.amount_input)
 
     def _on_accept(self) -> None:
         amount = self._parse_decimal(self.amount_input.text())
