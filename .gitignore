@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Bases de datos y datos reales - NUNCA subir al repo
+*.db
+*.sqlite
+*.sqlite3
+data_real/
+*.csv
+
+# Documentación interna de la IA (no se sube al repo)
+CLAUDE.md
+Context.md
+Pruebas.md
+
+# Secretos
+.env
+
+# Editor / OS
+.vscode/
+.claude/
+.DS_Store
