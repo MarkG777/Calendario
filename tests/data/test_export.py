@@ -54,7 +54,8 @@ def test_export_to_csv_writes_header_and_rows(tmp_path):
     with open(path, encoding="utf-8-sig", newline="") as f:
         rows = list(csv.reader(f))
 
-    assert rows[0][0] == "Deudor"
+    assert rows[0][0] == "Cliente"
+    assert rows[0][8] == "Tipo de pago"
     assert len(rows) == 3
     assert rows[1][0] == "Juan Perez"
     assert rows[1][6] == "600.00"
@@ -71,7 +72,8 @@ def test_export_to_excel_writes_header_and_rows(tmp_path):
     sheet = workbook.active
     rows = list(sheet.iter_rows(values_only=True))
 
-    assert rows[0][0] == "Deudor"
+    assert rows[0][0] == "Cliente"
+    assert rows[0][8] == "Tipo de pago"
     assert len(rows) == 3
     assert rows[1][0] == "Juan Perez"
     assert rows[1][6] == "600.00"

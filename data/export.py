@@ -10,7 +10,7 @@ from openpyxl import Workbook
 from domain.entities import Installment
 
 COLUMN_HEADERS = [
-    "Deudor",
+    "Cliente",
     "Préstamo",
     "Número de cuota",
     "Fecha programada",
@@ -18,6 +18,7 @@ COLUMN_HEADERS = [
     "Fecha de pago",
     "Monto pagado",
     "Método",
+    "Tipo de pago",
     "Notas",
 ]
 
@@ -32,6 +33,7 @@ class PaymentRecord:
     payment_date: date
     amount_paid: Decimal
     method: str
+    payment_type: str
     notes: str
 
     def as_row(self) -> list:
@@ -44,8 +46,17 @@ class PaymentRecord:
             self.payment_date.isoformat(),
             str(self.amount_paid),
             self.method,
+            self.payment_type,
             self.notes,
         ]
+
+
+def _payment_type(payment_date: date, scheduled_date: date) -> str:
+    if payment_date < scheduled_date:
+        return "Adelantado"
+    if payment_date > scheduled_date:
+        return "Atrasado"
+    return "A tiempo"
 
 
 def build_payment_records(
@@ -61,6 +72,7 @@ def build_payment_records(
             payment_date=payment.payment_date,
             amount_paid=payment.amount_paid,
             method=payment.method,
+            payment_type=_payment_type(payment.payment_date, installment.due_date),
             notes=payment.notes,
         )
         for installment in installments

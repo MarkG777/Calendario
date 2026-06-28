@@ -12,6 +12,9 @@ def borrower_to_domain(model: BorrowerModel) -> Borrower:
         phone=model.phone,
         address=model.address,
         notes=model.notes,
+        latitude=model.latitude,
+        longitude=model.longitude,
+        active=model.active,
         created_at=model.created_at,
     )
 
@@ -23,6 +26,9 @@ def borrower_to_model(borrower: Borrower) -> BorrowerModel:
         phone=borrower.phone,
         address=borrower.address,
         notes=borrower.notes,
+        latitude=borrower.latitude,
+        longitude=borrower.longitude,
+        active=borrower.active,
         created_at=borrower.created_at,
     )
 

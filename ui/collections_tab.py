@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from datetime import date
 
-from PySide6.QtCore import QDate, QLocale
+from PySide6.QtCore import QDate, QLocale, Qt
 from PySide6.QtGui import QTextCharFormat
 from PySide6.QtWidgets import (
     QCalendarWidget,
+    QComboBox,
     QDialog,
     QFileDialog,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QTableWidget,
@@ -28,14 +30,14 @@ from data.repositories import (
     PaymentRepository,
 )
 from domain.calculations import installment_status, outstanding_balance
-from domain.enums import InstallmentStatus
-from ui.icons import icon
+from ui.bulk_payment_dialog import BulkPaymentDialog
 from ui.payment_dialog import PaymentDialog
 from ui.status_colors import (
     status_background,
     status_foreground,
     worst_status,
 )
+from ui.theme import palette_colors
 
 
 class CollectionsTab(QWidget):
@@ -61,36 +63,72 @@ class CollectionsTab(QWidget):
         self.calendar.setSelectedDate(QDate.currentDate())
         self.calendar.clicked.connect(self._on_date_selected)
 
+        # ---- Legend ----
+        legend = self._build_legend()
+
         self.day_label = QLabel()
         self.day_table = self._build_table()
 
         calendar_view = QWidget()
         calendar_layout = QVBoxLayout(calendar_view)
+        calendar_layout.addWidget(legend)
         calendar_layout.addWidget(self.calendar)
         calendar_layout.addWidget(self.day_label)
         calendar_layout.addWidget(self.day_table)
 
-        self.upcoming_label = QLabel("Próximos cobros (los más cercanos primero)")
+        self.upcoming_label = QLabel(
+            "🔔 Todas las cuotas (ordenadas por fecha)"
+        )
         self.upcoming_table = self._build_table()
+
+        self._status_filter = QComboBox()
+        self._status_filter.addItem("Todos", "")
+        self._status_filter.addItem("Pendiente", "pendiente")
+        self._status_filter.addItem("Parcial", "parcial")
+        self._status_filter.addItem("Atrasado", "atrasado")
+        self._status_filter.addItem("Pagado", "pagado")
+        self._status_filter.setToolTip("Filtrar cuotas por estado")
+        self._status_filter.currentIndexChanged.connect(self._apply_upcoming_filter)
+
+        self._search_input = QLineEdit()
+        self._search_input.setPlaceholderText("🔍 Buscar por nombre de cliente...")
+        self._search_input.setToolTip(
+            "Escribe el nombre del cliente para filtrar las cuotas en tiempo real"
+        )
+        self._search_input.textChanged.connect(self._apply_upcoming_filter)
+
+        bulk_button = QPushButton("💸 Pagos multiples")
+        bulk_button.setToolTip(
+            "Registrar pagos para varias cuotas de un cliente a la vez "
+            "(pagos adelantados o atrasados)"
+        )
+        bulk_button.clicked.connect(self._open_bulk_payment_dialog)
+
+        upcoming_filter_row = QHBoxLayout()
+        upcoming_filter_row.addWidget(QLabel("🔎 Filtrar:"))
+        upcoming_filter_row.addWidget(self._status_filter)
+        upcoming_filter_row.addWidget(self._search_input, 1)
+        upcoming_filter_row.addWidget(bulk_button)
 
         upcoming_view = QWidget()
         upcoming_layout = QVBoxLayout(upcoming_view)
         upcoming_layout.addWidget(self.upcoming_label)
+        upcoming_layout.addLayout(upcoming_filter_row)
         upcoming_layout.addWidget(self.upcoming_table)
 
         self.history_table = QTableWidget(0, 4)
         self.history_table.setHorizontalHeaderLabels(
-            ["Deudor", "Fecha de pago", "Monto pagado", "Método"]
+            ["Cliente", "Fecha de pago", "Monto pagado", "Método"]
         )
         self.history_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.history_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.history_table.setAlternatingRowColors(True)
         self.history_table.verticalHeader().setVisible(False)
 
-        export_csv_button = QPushButton(icon("export", "#ffffff"), "Exportar a CSV")
+        export_csv_button = QPushButton("📄 Exportar a CSV")
         export_csv_button.setToolTip("Exportar el historial de cobros a un archivo CSV")
         export_csv_button.clicked.connect(self._export_history_csv)
-        export_excel_button = QPushButton(icon("export", "#ffffff"), "Exportar a Excel")
+        export_excel_button = QPushButton("📗 Exportar a Excel")
         export_excel_button.setToolTip("Exportar el historial de cobros a un archivo Excel")
         export_excel_button.clicked.connect(self._export_history_excel)
 
@@ -101,14 +139,14 @@ class CollectionsTab(QWidget):
 
         history_view = QWidget()
         history_layout = QVBoxLayout(history_view)
-        history_layout.addWidget(QLabel("Historial de cobros (más recientes primero)"))
+        history_layout.addWidget(QLabel("📋 Historial de cobros (más recientes primero)"))
         history_layout.addWidget(self.history_table)
         history_layout.addLayout(export_buttons_row)
 
         views = QTabWidget()
-        views.addTab(calendar_view, "Vista de calendario")
-        views.addTab(upcoming_view, "Vista de consulta")
-        views.addTab(history_view, "Historial de cobros")
+        views.addTab(calendar_view, "📅 Vista de calendario")
+        views.addTab(upcoming_view, "🔍 Vista de consulta")
+        views.addTab(history_view, "📋 Historial de cobros")
 
         layout = QVBoxLayout(self)
         layout.addWidget(views)
@@ -119,7 +157,7 @@ class CollectionsTab(QWidget):
     def _build_table() -> QTableWidget:
         table = QTableWidget(0, 6)
         table.setHorizontalHeaderLabels(
-            ["Deudor", "Fecha", "Monto programado", "Saldo pendiente", "Estado", ""]
+            ["Cliente", "Fecha", "Monto programado", "Saldo pendiente", "Estado", ""]
         )
         table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
@@ -127,6 +165,40 @@ class CollectionsTab(QWidget):
         table.setAlternatingRowColors(True)
         table.verticalHeader().setVisible(False)
         return table
+
+    @staticmethod
+    def _build_legend() -> QWidget:
+        legend_items = [
+            ("Pagado", "status_pagado_bg", "status_pagado_fg"),
+            ("Pendiente", "status_pendiente_bg", "status_pendiente_fg"),
+            ("Parcial", "status_parcial_bg", "status_parcial_fg"),
+            ("Atrasado", "status_atrasado_bg", "status_atrasado_fg"),
+        ]
+
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(12)
+
+        title = QLabel("🎨 Leyenda:")
+        title.setStyleSheet("font-weight: 600;")
+        layout.addWidget(title)
+
+        p = palette_colors()
+        for label_text, bg_key, fg_key in legend_items:
+            chip = QLabel(f"  {label_text}  ")
+            chip.setAlignment(Qt.AlignCenter)
+            chip.setStyleSheet(
+                f"background-color: {p[bg_key]}; "
+                f"color: {p[fg_key]}; "
+                f"border-radius: 4px; "
+                f"padding: 2px 8px; "
+                f"font-weight: 600;"
+            )
+            layout.addWidget(chip)
+
+        layout.addStretch()
+        return container
 
     def refresh(self) -> None:
         self._mark_calendar_days()
@@ -166,13 +238,22 @@ class CollectionsTab(QWidget):
         self._populate_table(self.day_table, installments)
 
     def _show_upcoming(self) -> None:
-        today = date.today()
         all_installments = self._installment_repository.list_all()
-        upcoming = [
-            i for i in all_installments if installment_status(i, today) != InstallmentStatus.PAGADO
-        ]
-        upcoming.sort(key=lambda i: i.due_date)
+        upcoming = sorted(all_installments, key=lambda i: i.due_date)
         self._populate_table(self.upcoming_table, upcoming)
+        self._apply_upcoming_filter()
+
+    def _apply_upcoming_filter(self) -> None:
+        filter_value = self._status_filter.currentData()
+        search_text = self._search_input.text().strip().lower()
+        for row in range(self.upcoming_table.rowCount()):
+            status_item = self.upcoming_table.item(row, 4)
+            status_text = status_item.text() if status_item else ""
+            name_item = self.upcoming_table.item(row, 0)
+            name_text = name_item.text().lower() if name_item else ""
+            status_visible = not filter_value or status_text == filter_value
+            name_visible = not search_text or search_text in name_text
+            self.upcoming_table.setRowHidden(row, not (status_visible and name_visible))
 
     def _show_history(self) -> None:
         borrower_by_loan_id = self._borrower_name_by_loan_id()
@@ -236,7 +317,7 @@ class CollectionsTab(QWidget):
             status_item.setForeground(status_foreground(status))
             table.setItem(row, 4, status_item)
 
-            collect_button = QPushButton(icon("payment", "#ffffff"), "Registrar cobro")
+            collect_button = QPushButton("💵 Registrar cobro")
             collect_button.setToolTip("Registrar un pago o abono para esta cuota")
             collect_button.clicked.connect(
                 lambda _checked, inst=installment: self._open_payment_dialog(inst)
@@ -258,4 +339,15 @@ class CollectionsTab(QWidget):
             except Exception as error:
                 QMessageBox.critical(self, "No se pudo registrar el cobro", str(error))
                 return
+            self.refresh()
+
+    def _open_bulk_payment_dialog(self) -> None:
+        dialog = BulkPaymentDialog(
+            borrower_repository=self._borrower_repository,
+            loan_repository=self._loan_repository,
+            installment_repository=self._installment_repository,
+            payment_repository=self._payment_repository,
+            parent=self,
+        )
+        if dialog.exec() == QDialog.Accepted:
             self.refresh()

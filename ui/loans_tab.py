@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
 
 from data.repositories import BorrowerRepository, LoanRepository
 from domain.enums import LoanStatus
-from ui.icons import icon
 from ui.loan_dialog import NewLoanDialog
 
 
@@ -32,14 +31,14 @@ class LoansTab(QWidget):
 
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(
-            ["Deudor", "Capital", "Total a cobrar", "Cuota", "Estado"]
+            ["Cliente", "Capital", "Total a cobrar", "Cuota", "Estado"]
         )
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
 
-        new_button = QPushButton(icon("plus"), "Nuevo préstamo")
+        new_button = QPushButton("➕ Nuevo préstamo")
         new_button.setToolTip("Crear un nuevo préstamo (Ctrl+P)")
         new_button.clicked.connect(self._open_new_loan_dialog)
 
@@ -53,7 +52,7 @@ class LoansTab(QWidget):
         buttons_row = QHBoxLayout()
         buttons_row.addWidget(new_button)
         buttons_row.addStretch()
-        buttons_row.addWidget(QLabel("Filtrar:"))
+        buttons_row.addWidget(QLabel("🔎 Filtrar:"))
         buttons_row.addWidget(self._status_filter)
 
         layout = QVBoxLayout(self)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -23,7 +24,7 @@ from domain.entities import Installment, Payment
 class PaymentDialog(QDialog):
     def __init__(self, installment: Installment, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Registrar cobro")
+        self.setWindowTitle("💵 Registrar cobro")
         self._installment = installment
 
         balance = outstanding_balance(installment)
@@ -43,6 +44,7 @@ class PaymentDialog(QDialog):
         self.notes_input.setToolTip("Notas internas sobre este pago")
 
         self.amount_input.textChanged.connect(self._validate_amount)
+        self.amount_input.textChanged.connect(self._sanitize_amount)
 
         form = QFormLayout()
         form.addRow("Monto programado:", self.scheduled_label)
@@ -67,6 +69,19 @@ class PaymentDialog(QDialog):
         except (InvalidOperation, ValueError):
             return None
 
+    def _sanitize_amount(self, text: str) -> None:
+        sender = self.sender()
+        if not isinstance(sender, QLineEdit):
+            return
+        clean = re.sub(r"[^\d.]", "", text)
+        parts = clean.split(".")
+        if len(parts) > 2:
+            clean = parts[0] + "." + "".join(parts[1:])
+        if clean != text:
+            sender.blockSignals(True)
+            sender.setText(clean)
+            sender.blockSignals(False)
+
     def _validate_amount(self) -> None:
         amount = self._parse_decimal(self.amount_input.text())
         if amount is None or amount <= 0:
@@ -86,10 +101,18 @@ class PaymentDialog(QDialog):
 
     def payment(self) -> Payment:
         payment_date: date = self.date_input.date().toPython()
+        if payment_date < self._installment.due_date:
+            ptype = "Pago adelantado"
+        elif payment_date > self._installment.due_date:
+            ptype = "Pago atrasado"
+        else:
+            ptype = "Pago a tiempo"
+        user_notes = self.notes_input.text().strip()
+        notes = f"{ptype}" + (f" - {user_notes}" if user_notes else "")
         return Payment(
             installment_id=self._installment.id,
             payment_date=payment_date,
             amount_paid=self._parse_decimal(self.amount_input.text()),
             method=self.method_input.text().strip(),
-            notes=self.notes_input.text().strip(),
+            notes=notes,
         )

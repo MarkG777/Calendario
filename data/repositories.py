@@ -42,6 +42,9 @@ class BorrowerRepository:
         model.phone = borrower.phone
         model.address = borrower.address
         model.notes = borrower.notes
+        model.latitude = borrower.latitude
+        model.longitude = borrower.longitude
+        model.active = borrower.active
         try:
             self._session.commit()
         except Exception:
@@ -52,6 +55,17 @@ class BorrowerRepository:
     def get(self, borrower_id: int) -> Borrower | None:
         model = self._session.get(BorrowerModel, borrower_id)
         return borrower_to_domain(model) if model else None
+
+    def set_active(self, borrower_id: int, active: bool) -> None:
+        model = self._session.get(BorrowerModel, borrower_id)
+        if model is None:
+            raise ValueError(f"Borrower {borrower_id} not found")
+        model.active = active
+        try:
+            self._session.commit()
+        except Exception:
+            self._session.rollback()
+            raise
 
     def list_all(self) -> list[Borrower]:
         models = self._session.scalars(select(BorrowerModel)).all()

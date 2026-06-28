@@ -13,6 +13,9 @@ class Borrower:
     phone: str = ""
     address: str = ""
     notes: str = ""
+    latitude: float | None = None
+    longitude: float | None = None
+    active: bool = True
     created_at: date | None = None
     id: int | None = None
 

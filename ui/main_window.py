@@ -20,7 +20,6 @@ from data.repositories import (
 from ui.borrowers_tab import BorrowersTab
 from ui.collections_tab import CollectionsTab
 from ui.dashboard_tab import DashboardTab
-from ui.icons import icon
 from ui.loans_tab import LoansTab
 from ui.theme import toggle_theme
 
@@ -53,12 +52,10 @@ class MainWindow(QMainWindow):
             loan_repository, installment_repository, borrower_repository
         )
 
-        self._tabs.addTab(self._borrowers_tab, icon("borrowers", "#64748b"), "Deudores")
-        self._tabs.addTab(self._loans_tab, icon("loans", "#64748b"), "Préstamos")
-        self._tabs.addTab(
-            self._collections_tab, icon("calendar", "#64748b"), "Calendario de cobros"
-        )
-        self._tabs.addTab(self._dashboard_tab, icon("dashboard", "#64748b"), "Dashboard")
+        self._tabs.addTab(self._borrowers_tab, "👤 Clientes")
+        self._tabs.addTab(self._loans_tab, "💰 Préstamos")
+        self._tabs.addTab(self._collections_tab, "📅 Calendario de cobros")
+        self._tabs.addTab(self._dashboard_tab, "📊 Dashboard")
         self._tabs.currentChanged.connect(self._on_tab_changed)
 
         self.setCentralWidget(self._tabs)
@@ -81,7 +78,7 @@ class MainWindow(QMainWindow):
 
         toolbar.addSeparator()
 
-        refresh_action = QAction(icon("refresh", "#64748b"), "Refrescar (F5)", self)
+        refresh_action = QAction("🔄 Refrescar (F5)", self)
         refresh_action.setShortcut(QKeySequence("F5"))
         refresh_action.triggered.connect(self._refresh_current_tab)
         toolbar.addAction(refresh_action)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -35,21 +36,28 @@ class NewLoanDialog(QDialog):
         self, borrower_repository: BorrowerRepository, parent: QWidget | None = None
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Nuevo préstamo")
+        self.setWindowTitle("➕ Nuevo préstamo")
 
         self._borrowers = borrower_repository.list_all()
 
         self.borrower_combo = QComboBox()
-        self.borrower_combo.setToolTip("Selecciona el deudor al que se le otorga el préstamo")
+        self.borrower_combo.setToolTip("Selecciona el cliente al que se le otorga el préstamo")
+        active_count = 0
         for borrower in self._borrowers:
-            self.borrower_combo.addItem(borrower.name, borrower.id)
+            if borrower.active:
+                self.borrower_combo.addItem(borrower.name, borrower.id)
+                active_count += 1
+        if active_count == 0:
+            self.borrower_combo.addItem("No hay clientes activos", -1)
 
         self.principal_input = QLineEdit("10000")
-        self.principal_input.setToolTip("Capital que se entrega al deudor (debe ser mayor a 0)")
+        self.principal_input.setToolTip("Capital que se entrega al cliente (debe ser mayor a 0)")
+        self.principal_input.textChanged.connect(self._sanitize_amount)
         self.total_due_input = QLineEdit("14000")
         self.total_due_input.setToolTip(
             "Total a cobrar: capital + ganancia. Debe ser mayor al capital."
         )
+        self.total_due_input.textChanged.connect(self._sanitize_amount)
 
         self.num_installments_input = QSpinBox()
         self.num_installments_input.setRange(1, 520)
@@ -79,7 +87,7 @@ class NewLoanDialog(QDialog):
         self.total_due_input.textChanged.connect(self._validate_total_due)
 
         form = QFormLayout()
-        form.addRow("Deudor*:", self.borrower_combo)
+        form.addRow("Cliente*:", self.borrower_combo)
         form.addRow("Capital:", self.principal_input)
         form.addRow("Total a cobrar:", self.total_due_input)
         form.addRow("Número de cuotas:", self.num_installments_input)
@@ -132,13 +140,26 @@ class NewLoanDialog(QDialog):
         except (InvalidOperation, ValueError):
             return None
 
+    def _sanitize_amount(self, text: str) -> None:
+        sender = self.sender()
+        if not isinstance(sender, QLineEdit):
+            return
+        clean = re.sub(r"[^\d.]", "", text)
+        parts = clean.split(".")
+        if len(parts) > 2:
+            clean = parts[0] + "." + "".join(parts[1:])
+        if clean != text:
+            sender.blockSignals(True)
+            sender.setText(clean)
+            sender.blockSignals(False)
+
     def _on_accept(self) -> None:
-        if self.borrower_combo.currentIndex() < 0:
+        if self.borrower_combo.currentIndex() < 0 or self.borrower_combo.currentData() == -1:
             QMessageBox.warning(
                 self,
-                "Falta un deudor",
-                "Primero debes dar de alta un deudor en la pestaña \"Deudores\" "
-                "antes de poder crear un préstamo.",
+                "Sin cliente activo",
+                "No hay clientes activos disponibles. "
+                "Activa o crea un cliente en la pestaña \"Clientes\" primero.",
             )
             return
         principal = self._parse_decimal(self.principal_input.text())
