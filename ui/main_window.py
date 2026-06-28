@@ -17,6 +17,7 @@ from data.repositories import (
     LoanRepository,
     PaymentRepository,
 )
+from ui.analysis_tab import AnalysisTab
 from ui.borrowers_tab import BorrowersTab
 from ui.collections_tab import CollectionsTab
 from ui.dashboard_tab import DashboardTab
@@ -51,12 +52,21 @@ class MainWindow(QMainWindow):
         self._dashboard_tab = DashboardTab(
             loan_repository, installment_repository, borrower_repository
         )
+        self._analysis_tab = AnalysisTab(
+            loan_repository, installment_repository, borrower_repository
+        )
 
         self._tabs.addTab(self._borrowers_tab, "👤 Clientes")
         self._tabs.addTab(self._loans_tab, "💰 Préstamos")
         self._tabs.addTab(self._collections_tab, "📅 Calendario de cobros")
         self._tabs.addTab(self._dashboard_tab, "📊 Dashboard")
+        self._tabs.addTab(self._analysis_tab, "📈 Análisis")
         self._tabs.currentChanged.connect(self._on_tab_changed)
+
+        # Cross-tab auto-refresh: when any tab modifies data, refresh all others
+        self._borrowers_tab.data_changed.connect(self._on_data_changed)
+        self._loans_tab.data_changed.connect(self._on_data_changed)
+        self._collections_tab.data_changed.connect(self._on_data_changed)
 
         self.setCentralWidget(self._tabs)
 
@@ -80,6 +90,9 @@ class MainWindow(QMainWindow):
 
         refresh_action = QAction("🔄 Refrescar (F5)", self)
         refresh_action.setShortcut(QKeySequence("F5"))
+        refresh_action.setToolTip(
+            "Recargar manualmente (la app se actualiza sola)"
+        )
         refresh_action.triggered.connect(self._refresh_current_tab)
         toolbar.addAction(refresh_action)
 
@@ -112,12 +125,34 @@ class MainWindow(QMainWindow):
             self._theme_action.setText("🌙 Modo claro")
         else:
             self._theme_action.setText("☀️ Modo oscuro")
-        # Re-apply calendar colors with new theme palette
-        self._collections_tab.refresh()
+        # Re-apply all tabs with new theme palette
+        for tab in (
+            self._borrowers_tab,
+            self._loans_tab,
+            self._collections_tab,
+            self._dashboard_tab,
+            self._analysis_tab,
+        ):
+            if hasattr(tab, "refresh"):
+                tab.refresh()
         self.show_status(f"Tema cambiado a {new_mode}", "info")
 
     def _on_tab_changed(self, _index: int) -> None:
         self._refresh_current_tab()
+
+    def _on_data_changed(self) -> None:
+        """Refresh all tabs except the sender to keep everything in sync."""
+        sender = self.sender()
+        for tab in (
+            self._borrowers_tab,
+            self._loans_tab,
+            self._collections_tab,
+            self._dashboard_tab,
+            self._analysis_tab,
+        ):
+            if tab is not sender and hasattr(tab, "refresh"):
+                tab.refresh()
+        self.show_status("Datos actualizados", "success")
 
     def _refresh_current_tab(self) -> None:
         widget = self._tabs.currentWidget()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from PySide6.QtCore import QDate, QLocale, Qt
+from PySide6.QtCore import QDate, QLocale, Qt, Signal
 from PySide6.QtGui import QTextCharFormat
 from PySide6.QtWidgets import (
     QCalendarWidget,
@@ -41,6 +41,8 @@ from ui.theme import palette_colors
 
 
 class CollectionsTab(QWidget):
+    data_changed = Signal()
+
     def __init__(
         self,
         installment_repository: InstallmentRepository,
@@ -62,16 +64,20 @@ class CollectionsTab(QWidget):
         self.calendar.setGridVisible(True)
         self.calendar.setSelectedDate(QDate.currentDate())
         self.calendar.clicked.connect(self._on_date_selected)
+        # Use the same text format for weekends as weekdays so the only
+        # colored indicators in the calendar are the installment status colors.
+        self.calendar.setWeekdayTextFormat(Qt.Saturday, QTextCharFormat())
+        self.calendar.setWeekdayTextFormat(Qt.Sunday, QTextCharFormat())
 
         # ---- Legend ----
-        legend = self._build_legend()
+        self._legend_container = self._build_legend()
 
         self.day_label = QLabel()
         self.day_table = self._build_table()
 
         calendar_view = QWidget()
         calendar_layout = QVBoxLayout(calendar_view)
-        calendar_layout.addWidget(legend)
+        calendar_layout.addWidget(self._legend_container)
         calendar_layout.addWidget(self.calendar)
         calendar_layout.addWidget(self.day_label)
         calendar_layout.addWidget(self.day_table)
@@ -164,6 +170,7 @@ class CollectionsTab(QWidget):
         table.setEditTriggers(QTableWidget.NoEditTriggers)
         table.setAlternatingRowColors(True)
         table.verticalHeader().setVisible(False)
+        table.verticalHeader().setDefaultSectionSize(36)
         return table
 
     @staticmethod
@@ -176,6 +183,7 @@ class CollectionsTab(QWidget):
         ]
 
         container = QWidget()
+        container.setObjectName("legend-container")
         layout = QHBoxLayout(container)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(12)
@@ -188,6 +196,7 @@ class CollectionsTab(QWidget):
         for label_text, bg_key, fg_key in legend_items:
             chip = QLabel(f"  {label_text}  ")
             chip.setAlignment(Qt.AlignCenter)
+            chip.setObjectName(f"legend-chip-{bg_key}")
             chip.setStyleSheet(
                 f"background-color: {p[bg_key]}; "
                 f"color: {p[fg_key]}; "
@@ -200,7 +209,27 @@ class CollectionsTab(QWidget):
         layout.addStretch()
         return container
 
+    def _refresh_legend_colors(self) -> None:
+        p = palette_colors()
+        legend_items = [
+            ("status_pagado_bg", "status_pagado_fg"),
+            ("status_pendiente_bg", "status_pendiente_fg"),
+            ("status_parcial_bg", "status_parcial_fg"),
+            ("status_atrasado_bg", "status_atrasado_fg"),
+        ]
+        for bg_key, fg_key in legend_items:
+            chip = self._legend_container.findChild(QLabel, f"legend-chip-{bg_key}")
+            if chip:
+                chip.setStyleSheet(
+                    f"background-color: {p[bg_key]}; "
+                    f"color: {p[fg_key]}; "
+                    f"border-radius: 4px; "
+                    f"padding: 2px 8px; "
+                    f"font-weight: 600;"
+                )
+
     def refresh(self) -> None:
+        self._refresh_legend_colors()
         self._mark_calendar_days()
         self._show_day(self.calendar.selectedDate().toPython())
         self._show_upcoming()
@@ -317,8 +346,9 @@ class CollectionsTab(QWidget):
             status_item.setForeground(status_foreground(status))
             table.setItem(row, 4, status_item)
 
-            collect_button = QPushButton("💵 Registrar cobro")
+            collect_button = QPushButton("💵 Cobrar")
             collect_button.setToolTip("Registrar un pago o abono para esta cuota")
+            collect_button.setMinimumSize(80, 28)
             collect_button.clicked.connect(
                 lambda _checked, inst=installment: self._open_payment_dialog(inst)
             )
@@ -340,6 +370,7 @@ class CollectionsTab(QWidget):
                 QMessageBox.critical(self, "No se pudo registrar el cobro", str(error))
                 return
             self.refresh()
+            self.data_changed.emit()
 
     def _open_bulk_payment_dialog(self) -> None:
         dialog = BulkPaymentDialog(
@@ -351,3 +382,4 @@ class CollectionsTab(QWidget):
         )
         if dialog.exec() == QDialog.Accepted:
             self.refresh()
+            self.data_changed.emit()

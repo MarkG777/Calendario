@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import date
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QDialog,
@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from data.repositories import BorrowerRepository
 from domain.entities import Borrower
 from ui.map_dialog import MapDialog
+from ui.theme import palette_colors
 
 
 class BorrowerDialog(QDialog):
@@ -60,7 +61,10 @@ class BorrowerDialog(QDialog):
             self.phone_input.textChanged.connect(self._validate_phone)
 
         self._phone_counter = QLabel("0 / 10 digitos")
-        self._phone_counter.setStyleSheet("font-size: 9pt; color: #64748b;")
+        p = palette_colors()
+        self._phone_counter.setStyleSheet(
+            f"font-size: 9pt; color: {p['text_secondary']};"
+        )
         self._phone_counter.setAlignment(Qt.AlignRight)
 
         self.address_input = QLineEdit(borrower.address if borrower else "")
@@ -92,8 +96,9 @@ class BorrowerDialog(QDialog):
             "Puedes escribir la direccion y/o seleccionar la ubicacion en el mapa. "
             "Ambas se guardan juntas."
         )
+        p = palette_colors()
         self._map_hint.setStyleSheet(
-            "font-size: 9pt; color: #64748b; font-style: italic;"
+            f"font-size: 9pt; color: {p['text_secondary']}; font-style: italic;"
         )
         self._map_hint.setWordWrap(True)
 
@@ -135,18 +140,25 @@ class BorrowerDialog(QDialog):
             self.phone_input.setText(clean)
             self.phone_input.blockSignals(False)
         count = len(clean)
+        p = palette_colors()
         if count == 10:
             self.phone_input.setProperty("cssClass", "")
             self._phone_counter.setText("10 / 10 digitos ✓")
-            self._phone_counter.setStyleSheet("font-size: 9pt; color: #22c55e; font-weight: 600;")
+            self._phone_counter.setStyleSheet(
+                f"font-size: 9pt; color: {p['success']}; font-weight: 600;"
+            )
         elif count == 0:
             self.phone_input.setProperty("cssClass", "invalid")
             self._phone_counter.setText("0 / 10 digitos")
-            self._phone_counter.setStyleSheet("font-size: 9pt; color: #64748b;")
+            self._phone_counter.setStyleSheet(
+                f"font-size: 9pt; color: {p['text_secondary']};"
+            )
         else:
             self.phone_input.setProperty("cssClass", "invalid")
             self._phone_counter.setText(f"{count} / 10 digitos — faltan {10 - count}")
-            self._phone_counter.setStyleSheet("font-size: 9pt; color: #ef4444; font-weight: 600;")
+            self._phone_counter.setStyleSheet(
+                f"font-size: 9pt; color: {p['error']}; font-weight: 600;"
+            )
         self.phone_input.style().unpolish(self.phone_input)
         self.phone_input.style().polish(self.phone_input)
 
@@ -232,6 +244,8 @@ class BorrowerDialog(QDialog):
 
 
 class BorrowersTab(QWidget):
+    data_changed = Signal()
+
     def __init__(
         self, borrower_repository: BorrowerRepository, parent: QWidget | None = None
     ) -> None:
@@ -278,6 +292,7 @@ class BorrowersTab(QWidget):
         self.refresh()
 
     def refresh(self) -> None:
+        p = palette_colors()
         self._borrowers = self._repository.list_all()
         self.table.setRowCount(len(self._borrowers))
         for row, borrower in enumerate(self._borrowers):
@@ -300,10 +315,10 @@ class BorrowersTab(QWidget):
             status_item = QTableWidgetItem()
             if borrower.active:
                 status_item.setText("Activo")
-                status_item.setForeground(QColor("#22c55e"))
+                status_item.setForeground(QColor(p["success"]))
             else:
                 status_item.setText("Bloqueado")
-                status_item.setForeground(QColor("#ef4444"))
+                status_item.setForeground(QColor(p["error"]))
             font = status_item.font()
             font.setBold(True)
             status_item.setFont(font)
@@ -345,15 +360,15 @@ class BorrowersTab(QWidget):
             toggle_button.setChecked(not borrower.active)
             if borrower.active:
                 toggle_button.setStyleSheet(
-                    "QPushButton { color: #ef4444; border: 1px solid #ef4444;"
-                    " border-radius: 4px; }"
-                    "QPushButton:hover { background-color: #fef2f2; }"
+                    f"QPushButton {{ color: {p['error']}; border: 1px solid {p['error']};"
+                    f" border-radius: 4px; }}"
+                    f"QPushButton:hover {{ background-color: {p['error_bg']}; }}"
                 )
             else:
                 toggle_button.setStyleSheet(
-                    "QPushButton { color: #22c55e; border: 1px solid #22c55e;"
-                    " border-radius: 4px; }"
-                    "QPushButton:hover { background-color: #f0fdf4; }"
+                    f"QPushButton {{ color: {p['success']}; border: 1px solid {p['success']};"
+                    f" border-radius: 4px; }}"
+                    f"QPushButton:hover {{ background-color: {p['success_bg']}; }}"
                 )
             toggle_button.clicked.connect(
                 lambda _checked, r=row: self._toggle_borrower(r)
@@ -388,6 +403,7 @@ class BorrowersTab(QWidget):
                 )
                 return
             self.refresh()
+            self.data_changed.emit()
 
     def _open_edit_borrower_dialog(self, row: int) -> None:
         borrower = self._borrowers[row]
@@ -401,6 +417,7 @@ class BorrowersTab(QWidget):
                 )
                 return
             self.refresh()
+            self.data_changed.emit()
 
     def _open_view_borrower_dialog(self, row: int) -> None:
         borrower = self._borrowers[row]
@@ -429,3 +446,4 @@ class BorrowersTab(QWidget):
             )
             return
         self.refresh()
+        self.data_changed.emit()

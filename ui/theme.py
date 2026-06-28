@@ -33,7 +33,7 @@ _LIGHT = {
     "card_shadow": "rgba(0,0,0,0.06)",
     "scrollbar": "#cbd5e1",
     "scrollbar_hover": "#94a3b8",
-    # Status colors for calendar and tables (light mode: pastel backgrounds, dark text)
+    # Status colors for calendar and tables (light mode: vivid but readable backgrounds)
     "status_pagado_bg": "#86efac",
     "status_pagado_fg": "#14532d",
     "status_pendiente_bg": "#fde047",
@@ -269,6 +269,13 @@ def _build_stylesheet(p: dict[str, str]) -> str:
         font-weight: 700;
     }}
 
+    QLabel[cssClass="scroll-hint"] {{
+        color: {p["text_secondary"]};
+        font-size: 10pt;
+        font-weight: 500;
+        padding: 4px 0;
+    }}
+
     /* ---- Calendar ---- */
     QCalendarWidget QToolButton {{
         background-color: {p["surface"]};
@@ -294,10 +301,8 @@ def _build_stylesheet(p: dict[str, str]) -> str:
     }}
 
     QCalendarWidget QAbstractItemView {{
-        background-color: {p["surface"]};
-        color: {p["text"]};
-        selection-background-color: {p["accent"]};
-        selection-color: white;
+        selection-background-color: transparent;
+        selection-color: {p["text"]};
         border: 1px solid {p["border"]};
         gridline-color: {p["calendar_grid"]};
     }}
@@ -305,7 +310,12 @@ def _build_stylesheet(p: dict[str, str]) -> str:
     /* Calendar day header (row of day names) */
     QCalendarWidget QAbstractItemView::item {{
         padding: 2px;
-        border: none;
+        border: 1px solid transparent;
+    }}
+
+    QCalendarWidget QAbstractItemView::item:selected {{
+        border: 2px solid {p["accent"]};
+        border-radius: 4px;
     }}
 
     /* QDateEdit dropdown calendar — inherits QCalendarWidget styles */
@@ -316,19 +326,21 @@ def _build_stylesheet(p: dict[str, str]) -> str:
 
     /* ---- Scroll bars ---- */
     QScrollBar:vertical {{
-        background: transparent;
-        width: 10px;
+        background: {p["surface"]};
+        width: 16px;
         margin: 0;
+        border-radius: 8px;
     }}
 
     QScrollBar::handle:vertical {{
-        background: {p["scrollbar"]};
-        border-radius: 5px;
-        min-height: 30px;
+        background: {p["scrollbar_hover"]};
+        border-radius: 7px;
+        min-height: 50px;
+        margin: 2px;
     }}
 
     QScrollBar::handle:vertical:hover {{
-        background: {p["scrollbar_hover"]};
+        background: {p["text_secondary"]};
     }}
 
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
@@ -336,19 +348,21 @@ def _build_stylesheet(p: dict[str, str]) -> str:
     }}
 
     QScrollBar:horizontal {{
-        background: transparent;
-        height: 10px;
+        background: {p["surface"]};
+        height: 16px;
         margin: 0;
+        border-radius: 8px;
     }}
 
     QScrollBar::handle:horizontal {{
-        background: {p["scrollbar"]};
-        border-radius: 5px;
-        min-width: 30px;
+        background: {p["scrollbar_hover"]};
+        border-radius: 7px;
+        min-width: 50px;
+        margin: 2px;
     }}
 
     QScrollBar::handle:horizontal:hover {{
-        background: {p["scrollbar_hover"]};
+        background: {p["text_secondary"]};
     }}
 
     QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{

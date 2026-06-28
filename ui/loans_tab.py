@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -19,6 +20,8 @@ from ui.loan_dialog import NewLoanDialog
 
 
 class LoansTab(QWidget):
+    data_changed = Signal()
+
     def __init__(
         self,
         loan_repository: LoanRepository,
@@ -95,3 +98,4 @@ class LoansTab(QWidget):
                 QMessageBox.critical(self, "No se pudo guardar el préstamo", str(error))
                 return
             self.refresh()
+            self.data_changed.emit()

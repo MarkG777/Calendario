@@ -10,18 +10,15 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QPushButton,
     QScrollArea,
-    QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from data.repositories import BorrowerRepository, InstallmentRepository, LoanRepository
-from domain.calculations import installment_status, loan_irr
+from domain.calculations import installment_status
 from domain.dashboard import (
     actual_collections,
     capital_outstanding,
@@ -135,26 +132,16 @@ class DashboardTab(QWidget):
         cards_container_layout.setContentsMargins(0, 0, 0, 0)
         cards_container_layout.addLayout(cards_layout)
 
-        self.irr_table = QTableWidget(0, 2)
-        self.irr_table.setHorizontalHeaderLabels(["Cliente", "TIR del préstamo"])
-        self.irr_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.irr_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.irr_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.irr_table.setAlternatingRowColors(True)
-        self.irr_table.verticalHeader().setVisible(False)
-
-        irr_box = QGroupBox("📊 TIR por préstamo")
-        irr_layout = QVBoxLayout()
-        irr_layout.addWidget(self.irr_table)
-        irr_box.setLayout(irr_layout)
-
         # ---- Charts ----
         from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
         from matplotlib.figure import Figure
 
-        self._fig = Figure(figsize=(10, 3.5), tight_layout=True)
+        self._fig = Figure(figsize=(10, 2.8), tight_layout=True)
         self._canvas = FigureCanvas(self._fig)
-        self._canvas.setMinimumHeight(280)
+        self._canvas.setMinimumHeight(220)
+        # Prevent matplotlib canvas from intercepting mouse wheel events
+        # so the QScrollArea can scroll with the wheel
+        self._canvas.setFocusPolicy(Qt.NoFocus)
         self._ax_profit = self._fig.add_subplot(1, 3, 1)
         self._ax_collections = self._fig.add_subplot(1, 3, 2)
         self._ax_status = self._fig.add_subplot(1, 3, 3)
@@ -167,6 +154,7 @@ class DashboardTab(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         content = QWidget()
         content_layout = QVBoxLayout(content)
         content_layout.setSpacing(12)
@@ -174,7 +162,6 @@ class DashboardTab(QWidget):
         content_layout.addLayout(filters_row)
         content_layout.addWidget(cards_container)
         content_layout.addWidget(charts_box)
-        content_layout.addWidget(irr_box)
         content_layout.addStretch()
         scroll.setWidget(content)
 
@@ -217,11 +204,6 @@ class DashboardTab(QWidget):
         self._irr_card.set_value(f"{irr * 100:.2f}%")
 
         borrower_name_by_id = {b.id: b.name for b in self._borrower_repository.list_all()}
-        self.irr_table.setRowCount(len(loans))
-        for row, loan in enumerate(loans):
-            borrower_name = borrower_name_by_id.get(loan.borrower_id, "—")
-            self.irr_table.setItem(row, 0, QTableWidgetItem(borrower_name))
-            self.irr_table.setItem(row, 1, QTableWidgetItem(f"{loan_irr(loan) * 100:.2f}%"))
 
         self._update_charts(loans, all_installments, borrower_name_by_id, today)
 
