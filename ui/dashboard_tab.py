@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QPushButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -163,13 +164,23 @@ class DashboardTab(QWidget):
         charts_layout.addWidget(self._canvas)
         charts_box.setLayout(charts_layout)
 
-        layout = QVBoxLayout(self)
-        layout.setSpacing(12)
-        layout.addLayout(filters_row)
-        layout.addWidget(cards_container)
-        layout.addWidget(charts_box)
-        layout.addWidget(irr_box)
-        layout.addStretch()
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setSpacing(12)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.addLayout(filters_row)
+        content_layout.addWidget(cards_container)
+        content_layout.addWidget(charts_box)
+        content_layout.addWidget(irr_box)
+        content_layout.addStretch()
+        scroll.setWidget(content)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(scroll)
 
         self.refresh()
 
