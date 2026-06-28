@@ -45,8 +45,6 @@ class BorrowerDialog(QDialog):
             self.setWindowTitle("➕ Nuevo cliente/deudor")
         self._latitude: float | None = borrower.latitude if borrower else None
         self._longitude: float | None = borrower.longitude if borrower else None
-        self._updating_from_map = False
-        self._initializing = True
 
         self.name_input = QLineEdit(borrower.name if borrower else "")
         self.name_input.setToolTip("Nombre completo del cliente (obligatorio)")
@@ -66,7 +64,7 @@ class BorrowerDialog(QDialog):
         self._phone_counter.setAlignment(Qt.AlignRight)
 
         self.address_input = QLineEdit(borrower.address if borrower else "")
-        self.address_input.setToolTip("Direccion escrita del cliente")
+        self.address_input.setToolTip("Direccion del cliente (escrita o del mapa)")
         self.address_input.setReadOnly(read_only)
         if not read_only:
             self.address_input.textChanged.connect(self._on_address_changed)
@@ -80,6 +78,9 @@ class BorrowerDialog(QDialog):
             self.map_button.setEnabled(
                 self._latitude is not None and self._longitude is not None
             )
+        elif self._latitude is not None and self._longitude is not None:
+            self.map_button.setText("📍 Cambiar ubicacion")
+            self.map_button.setToolTip("Abrir mapa para cambiar la ubicacion")
 
         self._coords_label = QLabel("Coordenadas: no seleccionadas")
         if self._latitude is not None and self._longitude is not None:
@@ -88,9 +89,8 @@ class BorrowerDialog(QDialog):
             )
 
         self._map_hint = QLabel(
-            "Si seleccionas una ubicacion en el mapa, la direccion se llenara "
-            "automaticamente. Si editas la direccion manualmente, las coordenadas "
-            "se borraran."
+            "Puedes escribir la direccion y/o seleccionar la ubicacion en el mapa. "
+            "Ambas se guardan juntas."
         )
         self._map_hint.setStyleSheet(
             "font-size: 9pt; color: #64748b; font-style: italic;"
@@ -126,9 +126,6 @@ class BorrowerDialog(QDialog):
         layout.addLayout(form)
         layout.addWidget(buttons)
 
-        self._on_address_changed()
-        self._initializing = False
-
     def _validate_phone(self) -> None:
         text = self.phone_input.text()
         # Only allow digits
@@ -154,30 +151,17 @@ class BorrowerDialog(QDialog):
         self.phone_input.style().polish(self.phone_input)
 
     def _on_address_changed(self) -> None:
-        has_address = bool(self.address_input.text().strip())
-        has_coords = self._latitude is not None and self._longitude is not None
-        # Clear coordinates when user manually edits the address text
-        if (
-            not self._initializing
-            and not self._updating_from_map
-            and has_address
-            and has_coords
-        ):
-            self._latitude = None
-            self._longitude = None
-            has_coords = False
-            self._coords_label.setText("Coordenadas: no seleccionadas")
         if self._read_only:
             return
+        has_coords = self._latitude is not None and self._longitude is not None
         if has_coords:
             self.map_button.setText("📍 Cambiar ubicacion")
-            self.map_button.setToolTip("Abrir mapa para seleccionar nueva ubicacion")
+            self.map_button.setToolTip("Abrir mapa para cambiar la ubicacion")
         else:
             self.map_button.setText("📍 Seleccionar ubicacion")
             self.map_button.setToolTip("Seleccionar ubicacion en el mapa")
 
     def _open_map(self) -> None:
-        # Both view and edit modes open map with current coordinates
         dialog = MapDialog(
             latitude=self._latitude,
             longitude=self._longitude,
@@ -194,11 +178,9 @@ class BorrowerDialog(QDialog):
                     f"Coordenadas: {self._latitude:.5f}, {self._longitude:.5f}"
                 )
                 if dialog.reverse_address:
-                    self._updating_from_map = True
                     self.address_input.setText(dialog.reverse_address)
-                    self._updating_from_map = False
                 self.map_button.setText("📍 Cambiar ubicacion")
-                self.map_button.setToolTip("Abrir mapa para seleccionar nueva ubicacion")
+                self.map_button.setToolTip("Abrir mapa para cambiar la ubicacion")
 
     def _on_accept(self) -> None:
         if not self.name_input.text().strip():

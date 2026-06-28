@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import urllib.request
+
 from PySide6.QtCore import QUrl
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
@@ -84,6 +87,7 @@ map.on('click', function(e) {{
 function updateCoords(lat, lng) {{
   document.getElementById('coords-label').textContent =
     'Coordenadas: ' + lat.toFixed(5) + ', ' + lng.toFixed(5);
+  document.title = JSON.stringify({{lat: lat, lng: lng}});
   reverseGeocode(lat, lng);
 }}
 
@@ -98,6 +102,7 @@ function reverseGeocode(lat, lng) {{
         document.getElementById('coords-label').textContent =
           'Coordenadas: ' + lat.toFixed(5) + ', ' + lng.toFixed(5) +
           ' | ' + reverseAddress;
+        document.title = JSON.stringify({{lat: lat, lng: lng, address: reverseAddress}});
       }}
     }})
     .catch(function() {{}});
@@ -169,6 +174,7 @@ class MapDialog(QDialog):
             lng=self._longitude if self._longitude else "null",
         )
         self._web_view.setHtml(html, QUrl("https://unpkg.com/"))
+        self._web_view.page().titleChanged.connect(self._on_title_changed)
 
         self._coords_label = QLabel("Coordenadas: -")
         if self._latitude is not None and self._longitude is not None:
@@ -185,24 +191,50 @@ class MapDialog(QDialog):
         layout.addWidget(self._coords_label)
         layout.addWidget(buttons)
 
-    def _on_accept(self) -> None:
-        # Read coordinates from the JS marker
-        self._web_view.page().runJavaScript(
-            "window._getCoords ? window._getCoords() : null",
-            0,
-            self._read_coords,
-        )
+    def _on_title_changed(self, title: str) -> None:
+        if not title:
+            return
+        try:
+            data = json.loads(title)
+            if "lat" in data and "lng" in data:
+                self._latitude = float(data["lat"])
+                self._longitude = float(data["lng"])
+                self._coords_label.setText(
+                    f"Coordenadas: {self._latitude:.5f}, {self._longitude:.5f}"
+                )
+            if "address" in data and data["address"]:
+                self._reverse_address = data["address"]
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
 
-    def _read_coords(self, result) -> None:
-        if result and isinstance(result, dict):
-            self._latitude = result.get("lat")
-            self._longitude = result.get("lng")
-            self._reverse_address = result.get("address") or ""
+    def _on_accept(self) -> None:
         if self._latitude is not None and self._longitude is not None:
+            self._do_reverse_geocode()
             self.accept()
         else:
-            # No marker placed
             self.reject()
+
+    def _do_reverse_geocode(self) -> None:
+        if self._latitude is None or self._longitude is None:
+            return
+        try:
+            url = (
+                f"https://nominatim.openstreetmap.org/reverse"
+                f"?format=json&lat={self._latitude}&lon={self._longitude}&limit=1"
+            )
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "CalendarioApp/1.0",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = json.loads(response.read().decode())
+                if data and "display_name" in data:
+                    self._reverse_address = data["display_name"]
+        except Exception:
+            pass
 
     @property
     def latitude(self) -> float | None:
