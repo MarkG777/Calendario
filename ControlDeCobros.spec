@@ -1,12 +1,17 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from PyInstaller.utils.hooks import collect_all
+
+webengine_datas, webengine_binaries, webengine_hiddenimports = collect_all(
+    "PySide6.QtWebEngineCore"
+)
 
 a = Analysis(
     ['app\\main.py'],
     pathex=[],
-    binaries=[],
-    datas=[('ui', 'ui')],
-    hiddenimports=[],
+    binaries=webengine_binaries,
+    datas=[('ui', 'ui')] + webengine_datas,
+    hiddenimports=webengine_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

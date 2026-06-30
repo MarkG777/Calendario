@@ -3,8 +3,7 @@ from __future__ import annotations
 import json
 import urllib.request
 
-from PySide6.QtCore import QUrl
-from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -12,6 +11,14 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+try:
+    from PySide6.QtWebEngineWidgets import QWebEngineView
+
+    _WEBENGINE_AVAILABLE = True
+except ImportError:
+    QWebEngineView = None  # type: ignore[assignment, misc]
+    _WEBENGINE_AVAILABLE = False
 
 _LEAFLET_HTML = """<!DOCTYPE html>
 <html lang="es">
@@ -168,14 +175,6 @@ class MapDialog(QDialog):
         self._longitude: float | None = longitude
         self._reverse_address: str = ""
 
-        self._web_view = QWebEngineView()
-        html = _LEAFLET_HTML.format(
-            lat=self._latitude if self._latitude else "null",
-            lng=self._longitude if self._longitude else "null",
-        )
-        self._web_view.setHtml(html, QUrl("https://unpkg.com/"))
-        self._web_view.page().titleChanged.connect(self._on_title_changed)
-
         self._coords_label = QLabel("Coordenadas: -")
         if self._latitude is not None and self._longitude is not None:
             self._coords_label.setText(
@@ -187,7 +186,34 @@ class MapDialog(QDialog):
         buttons.rejected.connect(self.reject)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(self._web_view, 1)
+
+        if _WEBENGINE_AVAILABLE:
+            try:
+                self._web_view = QWebEngineView()
+                html = _LEAFLET_HTML.format(
+                    lat=self._latitude if self._latitude else "null",
+                    lng=self._longitude if self._longitude else "null",
+                )
+                self._web_view.setHtml(html, QUrl("https://unpkg.com/"))
+                self._web_view.page().titleChanged.connect(self._on_title_changed)
+                layout.addWidget(self._web_view, 1)
+            except Exception:
+                fallback = QLabel(
+                    "No se pudo cargar el mapa en esta computadora.\n"
+                    "Puedes ingresar la direccion manualmente."
+                )
+                fallback.setAlignment(
+                    fallback.alignment() | Qt.AlignCenter
+                )
+                layout.addWidget(fallback, 1)
+        else:
+            fallback = QLabel(
+                "El componente de mapa no esta disponible.\n"
+                "Puedes ingresar la direccion manualmente."
+            )
+            fallback.setAlignment(fallback.alignment() | Qt.AlignCenter)
+            layout.addWidget(fallback, 1)
+
         layout.addWidget(self._coords_label)
         layout.addWidget(buttons)
 
