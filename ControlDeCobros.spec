@@ -9,7 +9,11 @@ webengine_datas, webengine_binaries, webengine_hiddenimports = collect_all(
 a = Analysis(
     ['app\\main.py'],
     pathex=[],
-    binaries=webengine_binaries,
+    binaries=webengine_binaries + [
+        ('vc_redist\\vcruntime140.dll', '.'),
+        ('vc_redist\\vcruntime140_1.dll', '.'),
+        ('vc_redist\\msvcp140.dll', '.'),
+    ],
     datas=[('ui', 'ui')] + webengine_datas,
     hiddenimports=webengine_hiddenimports,
     hookspath=[],
