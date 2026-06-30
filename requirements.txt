@@ -1,0 +1,5 @@
+PySide6>=6.8
+SQLAlchemy>=2.0
+numpy>=1.26
+numpy-financial>=1.0
+openpyxl>=3.1

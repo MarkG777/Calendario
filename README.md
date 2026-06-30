@@ -11,14 +11,13 @@ real de su capital (TIR).
 ```
 python -m venv .venv
 .venv\Scripts\activate
-pip install -e ".[dev]"
+pip install -r requirements.txt
 ```
 
 ## Correr la app
 ```
 python -m app.main
 ```
-(Disponible a partir de la FASE 3 del desarrollo.)
 
 ## Correr las pruebas
 ```
@@ -27,13 +26,12 @@ pytest
 
 ## Empaquetar (ejecutable independiente)
 ```
-pip install -e ".[build]"
-python -m PyInstaller --name ControlDeCobros --onefile --windowed app/main.py
+pip install pyinstaller
+pyinstaller --onefile --windowed --name ControlDeCobros --clean --noconfirm --add-data "ui;ui" app/main.py
 ```
 El ejecutable queda en `dist/ControlDeCobros.exe`. Al abrirlo, crea (o usa)
-`cobros.db` en la misma carpeta donde está el `.exe` — no en la carpeta del
-código fuente. `ControlDeCobros.spec` queda versionado para reproducir el
-mismo empaquetado (por ejemplo, si más adelante se agrega un ícono).
+`cobros.db` en la misma carpeta donde está el `.exe`. El `.exe` es portable:
+no requiere Python instalado, solo doble clic y funciona.
 
 ## Historial de versiones
 Ver [CHANGELOG.md](CHANGELOG.md).
